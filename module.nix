@@ -1,0 +1,116 @@
+{ config, lib, pkgs, ... }:
+let
+  # Just for convinience, this module's config values
+  sp = config.selfprivacy;
+  cfg = sp.modules.service_id;
+in
+{
+  # Here go the options you expose to the user.
+  options.selfprivacy.modules.service_id = {
+    # This is required and must always be named "enable"
+    enable = (lib.mkOption {
+      default = false;
+      type = lib.types.bool;
+      description = "Enable the service";
+    }) // {
+      meta = {
+        type = "enable";
+      };
+    };
+    # This is required if your service stores data on disk
+    location = (lib.mkOption {
+      type = lib.types.str;
+      description = "Service location";
+    }) // {
+      meta = {
+        type = "location";
+      };
+    };
+    # This is required if your service needs a subdomain
+    subdomain = (lib.mkOption {
+      default = "photo";
+      type = lib.types.strMatching "[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9]";
+      description = "Subdomain";
+    }) // {
+      meta = {
+        widget = "subdomain";
+        type = "string";
+        regex = "[A-Za-z0-9][A-Za-z0-9\-]{0,61}[A-Za-z0-9]";
+        weight = 0;
+      };
+    };
+    # Other options, that user sees directly.
+    # Refer to Module options reference to learn more.
+
+    # TODO services.immich.machine-learning.enable
+    machineLearningEnable = (lib.mkOption {
+      default = true;
+      type = lib.types.bool;
+      description = "Enable Machine Learning Features";
+    }) // {
+      meta = {
+        type = "bool";
+        weight = 1;
+      };
+    };
+    # TODO check relevant settings on services.immich.settings
+    # TODO services.immich.accelerationDevices
+  };
+  # All your changes to the system must go to this config attrset.
+  # It MUST use lib.mkIf with an enable option.
+  # This makes sure your module only makes changes to the system
+  # if the module is enabled.
+  config = lib.mkIf cfg.enable {
+    # If your service stores data on disk, you have to mount a folder
+    # for this. useBinds is always true on modern SelfPrivacy installations
+    # but we keep this mkIf to keep migration flow possible.
+    fileSystems = lib.mkIf sp.useBinds {
+      "/var/lib/immich" = {
+        device = "/volumes/${cfg.location}/immich";
+        # Make sure that your service does not start before folder mounts
+        options = [
+          "bind"
+          "x-systemd.required-by=immich-server.service"
+          "x-systemd.required-by=immich-machine-learning.service"
+          "x-systemd.before=immich-server.service"
+          "x-systemd.before=immich-machine-learning.service"
+        ];
+      };
+    };
+    # Your service configuration, varies heavily.
+    # Refer to NixOS Options search.
+    # You can use defined options here.
+    services.immich = {
+      enable = true;
+      domain = "${cfg.subdomain}.${sp.domain}";
+      machine-learning.enable = cfg.machineLearningEnable;
+      settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
+    };
+    systemd = {
+      services.immich-server.serviceConfig.Slice = "immich.slice";
+      services.immich-machine-learning.serviceConfig.Slice = "immich.slice";
+      # Define the slice itself
+      slices.immich = {
+        description = "Immich (self-hosted photo and video backup solution) slice (on selfprivacy)";
+      };
+    };
+    # You can define a reverse proxy for your service like this
+    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}" = {
+      useACMEHost = sp.domain;
+      forceSSL = true;
+      extraConfig = ''
+        add_header Strict-Transport-Security $hsts_header;
+        add_header 'Referrer-Policy' 'origin-when-cross-origin';
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        proxy_cookie_path / "/; secure; HttpOnly; SameSite=strict";
+      '';
+      locations = {
+        "/" = {
+          proxyPass = "http://127.0.0.1:2283";
+        };
+      };
+    };
+  };
+}
