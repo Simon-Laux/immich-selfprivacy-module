@@ -82,7 +82,6 @@ in
     # You can use defined options here.
     services.immich = {
       enable = true;
-      domain = "${cfg.subdomain}.${sp.domain}";
       machine-learning.enable = cfg.machineLearningEnable;
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
     };
