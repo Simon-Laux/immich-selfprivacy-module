@@ -120,6 +120,18 @@ in
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
       user = linuxUserOfService;
       group = linuxGroupOfService;
+
+      package = pkgs.immich.overrideAttrs (old: {
+        # patch of immich 1.138 (what's currently referenced by self privacy nixpkgs)
+        # that also allows file path as clientSecret config.
+        # If this works, then I'll make a cleaner pr to immich ton introduce this properly
+        src = pkgs.fetchFromGitHub {
+            owner = "Simon-Laux";
+            repo = "immich";
+            rev = "feat-allow-to-load-client-secret-from-file";
+            hash = "sha256-Bo9wFP0u39aoaNjc8K4Im3HRGZR/TLrDB7+UDAhV1xA=";
+          };
+      });
     };
     systemd = {
       services.immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
@@ -169,10 +181,7 @@ in
       buttonText = "Login with Kanidm";
 
       clientId = "immich";
-      # TODO patch or contribute to immich to allow providing
-      # a file pointer for the client secret as an alternative
-      # to "hardcoding" the secret into the configuration like this
-      clientSecret = builtins.readFile oauthClientSecretFP;
+      clientSecret = oauthClientSecretFP;
       scope = "openid email profile";
 
       issuerUrl = oauthDiscoveryURL; # TODO is this correct?
