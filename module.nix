@@ -6,8 +6,13 @@ let
 
   oauthClientID = "immich";
   auth-passthru = config.selfprivacy.passthru.auth;
-  oauth2-provider-name = auth-passthru.oauth2-provider-name;
-  redirect-uri = "https://${cfg.subdomain}.${sp.domain}/user/oauth2/${oauth2-provider-name}/callback";
+  # oauth2-provider-name = auth-passthru.oauth2-provider-name;
+  redirectUris = [
+    # https://immich.app/docs/administration/oauth/#prerequisites
+    "app.immich:///oauth-callback"
+    "https://${cfg.subdomain}.${sp.domain}/auth/login"
+    "https://${cfg.subdomain}.${sp.domain}/user-settings"
+  ];
   oauthDiscoveryURL = auth-passthru.oauth2-discovery-url oauthClientID;
 
   # SelfPrivacy uses SP Module ID to identify the group!
@@ -19,7 +24,7 @@ let
   linuxUserOfService = "immich";
   linuxGroupOfService = "immich";
 
-  serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
+  # serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
   oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
 in
 {
@@ -135,8 +140,6 @@ in
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
 
-        # SSO
-        rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
         # FIXME is it needed?
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
@@ -152,7 +155,7 @@ in
     assertions = [
       {
         assertion = sp.sso.enable;
-        message = "This module needs SSO. Please update your SP instance to enable it,";
+        message = "This module needs SSO. Please update your SP instance to enable it.";
       }
     ];
 
@@ -190,8 +193,6 @@ in
       # storageQuotaClaim = "immich_quota";
     };
 
-    # TODO redirect uris
-    # as written on https://immich.app/docs/administration/oauth/#prerequisites
 
     selfprivacy.auth.clients."${oauthClientID}" = {
       inherit adminsGroup usersGroup;
@@ -200,8 +201,7 @@ in
       subdomain = cfg.subdomain;
       isTokenNeeded = true;
       originLanding = "https://${cfg.subdomain}.${sp.domain}";
-      originUrl = redirect-uri;
-
+      originUrl = redirectUris;
 
       clientSystemdUnits = [ "immich.service" ];
 
