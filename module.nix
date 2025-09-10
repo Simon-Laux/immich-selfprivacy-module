@@ -185,7 +185,7 @@ in
       # storageQuotaClaim = "immich_quota";
     };
 
-    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}" = {
+    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}" = lib.mkMerge {
       extraConfig = lib.mkAfter ''
         rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
         # FIXME is it needed?
