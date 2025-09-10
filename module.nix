@@ -25,7 +25,7 @@ let
   linuxGroupOfService = "immich";
 
   # serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
-  oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
+  # oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
 in
 {
   # Here go the options you expose to the user.
@@ -194,7 +194,6 @@ in
       # storageQuotaClaim = "immich_quota";
     };
 
-
     selfprivacy.auth.clients."${oauthClientID}" = {
       inherit adminsGroup usersGroup;
       imageFile = ./icon.svg;
@@ -222,5 +221,9 @@ in
         valuesByGroup.${adminsGroup} = [ "admin" ];
       };
     };
+
+    # enable Pkce mode that does not use the client secret
+    # https://kanidm.github.io/kanidm/stable/integrations/oauth2.html#public-client-configuration
+    services.kanidm.provision.systems.oauth2."${oauthClientID}".public = true;
   };
 }
