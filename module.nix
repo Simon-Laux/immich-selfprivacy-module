@@ -3,6 +3,24 @@ let
   # Just for convinience, this module's config values
   sp = config.selfprivacy;
   cfg = sp.modules.immich;
+
+  oauthClientID = "immich";
+  auth-passthru = config.selfprivacy.passthru.auth;
+  oauth2-provider-name = auth-passthru.oauth2-provider-name;
+  redirect-uri = "https://${cfg.subdomain}.${sp.domain}/user/oauth2/${oauth2-provider-name}/callback";
+  oauthDiscoveryURL = auth-passthru.oauth2-discovery-url oauthClientID;
+
+  # SelfPrivacy uses SP Module ID to identify the group!
+  adminsGroup = "sp.immich.admins";
+  usersGroup = "sp.immich.users";
+
+  # INFO: immich is the default user & group that is created by the immich nixos service
+  # if we change this we may need to create the user and group in this file instead
+  linuxUserOfService = "immich";
+  linuxGroupOfService = "immich";
+
+  serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
+  oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
 in
 {
   # Here go the options you expose to the user.
@@ -55,6 +73,17 @@ in
     };
     # TODO check relevant settings on services.immich.settings
     # TODO services.immich.accelerationDevices
+    defaultStorageClaim = (lib.mkOption {
+      default = "2";
+      type = lib.types.int;
+      description = "How much Storage Quota users have by default in GiB. Set to 0 for unlimited";
+    }) // {
+      meta = {
+        type = "int";
+        weight = 1;
+        minValue = 0;
+      };
+    };
   };
   # All your changes to the system must go to this config attrset.
   # It MUST use lib.mkIf with an enable option.
@@ -84,6 +113,8 @@ in
       enable = true;
       machine-learning.enable = cfg.machineLearningEnable;
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
+      user = linuxUserOfService;
+      group = linuxGroupOfService;
     };
     systemd = {
       services.immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
@@ -109,6 +140,88 @@ in
           proxyPass = "http://localhost:2283";
           proxyWebsockets = true;
         };
+      };
+    };
+
+  # SSO
+    assertions = [
+      {
+        assertion = !sp.sso.enable;
+        message = "This module needs SSO. Please update your SP instance to enable it,";
+      }
+    ];
+
+    # TODO disable passoword login, in hope that this solves the first signup becomes admin problem
+
+    services.immich.settings.oauth = {
+      enabled = true;
+      autoRegister = true;
+      # https://immich.app/docs/administration/oauth/#auto-launch
+      autoLaunch = false;
+      buttonText = "Login with Kanidm";
+
+      clientId = "immich";
+      clientSecret = oauthClientSecretFP;
+      scope = "openid email profile";
+
+      issuerUrl = oauthDiscoveryURL; # TODO is this correct?
+
+      # https://immich.app/docs/administration/oauth/#mobile-redirect-uri
+      mobileOverrideEnabled = false;
+      # mobileRedirectUri: "";
+
+      # signingAlgorithm = "RS256";
+      # profileSigningAlgorithm = "none";
+
+      # Default quota for user without storage quota claim (empty for unlimited quota)
+      # (in GiB)
+      defaultStorageQuota = cfg.defaultStorageClaim;
+
+      # Claim mapping for the user's role. (should return "user" or "admin")
+      roleClaim = "groups";
+      storageLabelClaim = "preferred_username";
+
+      # TODO: custom claims from UI? does SP support that?
+      # storageQuotaClaim = "immich_quota";
+    };
+
+    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}" = {
+      extraConfig = lib.mkAfter ''
+        rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
+        # FIXME is it needed?
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      '';
+    };
+
+    # TODO redirect uris
+    # as written on https://immich.app/docs/administration/oauth/#prerequisites
+
+    selfprivacy.auth.clients."${oauthClientID}" = {
+      inherit adminsGroup usersGroup;
+      imageFile = ./icon.svg;
+      displayName = "immich";
+      subdomain = cfg.subdomain;
+      isTokenNeeded = true;
+      originLanding = "https://${cfg.subdomain}.${sp.domain}";
+      originUrl = redirect-uri;
+
+
+      clientSystemdUnits = [ "immich.service" ];
+
+      # let's try this, but it may need additional work?
+      enablePkce = true;
+      linuxUserOfClient = linuxUserOfService;
+      linuxGroupOfClient = linuxGroupOfService;
+
+      scopeMaps.${usersGroup} = [
+        "email"
+        "openid"
+        "profile"
+      ];
+
+      claimMaps.groups = {
+        joinType = "array";
+        valuesByGroup.${adminsGroup} = [ "admin" ];
       };
     };
   };

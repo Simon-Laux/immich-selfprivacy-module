@@ -29,6 +29,11 @@
       user = "immich";
       group = "immich";
 
+      sso = {
+        userGroup = "sp.immich.users";
+        adminGroup = "sp.immich.admins";
+      };
+
       # Folders that have to be moved or backed up
       # Ownership is implied by the user/group defined above
       folders = [
