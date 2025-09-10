@@ -130,7 +130,7 @@ in
             owner = "Simon-Laux";
             repo = "immich";
             rev = "feat-allow-to-load-client-secret-from-file";
-            hash = "";
+            hash = "sha256-L30KfiP++Tqc6qUkviIkHuo/ndV7+LiNlu1F4aUyw24=";
           };
       });
     };
