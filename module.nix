@@ -179,7 +179,7 @@ in
       mobileOverrideEnabled = false;
       # mobileRedirectUri: "";
 
-      # signingAlgorithm = "RS256";
+      signingAlgorithm = "ES256";
       # profileSigningAlgorithm = "none";
 
       # Default quota for user without storage quota claim (empty for unlimited quota)
