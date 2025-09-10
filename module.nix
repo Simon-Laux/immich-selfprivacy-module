@@ -74,7 +74,7 @@ in
     # TODO check relevant settings on services.immich.settings
     # TODO services.immich.accelerationDevices
     defaultStorageClaim = (lib.mkOption {
-      default = "2";
+      default = 2;
       type = lib.types.int;
       description = "How much Storage Quota users have by default in GiB. Set to 0 for unlimited";
     }) // {
