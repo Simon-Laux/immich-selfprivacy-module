@@ -228,8 +228,10 @@ in
 
     # enable Pkce mode that does not use the client secret
     # https://kanidm.github.io/kanidm/stable/integrations/oauth2.html#public-client-configuration
-    services.kanidm.provision.systems.oauth2."${oauthClientID}".public = true;
-    # delete client secret
-    services.kanidm.provision.systems.oauth2."${oauthClientID}".basicSecretFile = lib.mkForce null;
+    services.kanidm.provision.systems.oauth2."${oauthClientID}" = lib.mkMergr {
+      public = true;
+      # delete client secret
+      basicSecretFile = lib.mkForce null;
+    };
   };
 }
