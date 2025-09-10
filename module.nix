@@ -152,7 +152,7 @@ in
   # SSO
     assertions = [
       {
-        assertion = !sp.sso.enable;
+        assertion = sp.sso.enable;
         message = "This module needs SSO. Please update your SP instance to enable it,";
       }
     ];
