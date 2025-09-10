@@ -13,7 +13,7 @@
       description = "immich is a self-hosted photo and video management solution";
       svgIcon = builtins.readFile ./icon.svg;
       showUrl = true;
-      isMovable = false;
+      isMovable = true;
       isRequired = false;
 
       # TODO: test if it would work or if sth is missing in files
