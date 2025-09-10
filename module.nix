@@ -134,6 +134,11 @@ in
         add_header X-Frame-Options SAMEORIGIN;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
+
+        # SSO
+        rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
+        # FIXME is it needed?
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
       locations = {
         "/" = {
@@ -184,13 +189,6 @@ in
       # TODO: custom claims from UI? does SP support that?
       # storageQuotaClaim = "immich_quota";
     };
-
-    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}".extraConfig = lib.mkAfter ''
-        rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
-        # FIXME is it needed?
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-      '';
-
 
     # TODO redirect uris
     # as written on https://immich.app/docs/administration/oauth/#prerequisites
