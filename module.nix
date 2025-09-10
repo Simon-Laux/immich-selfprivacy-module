@@ -78,17 +78,18 @@ in
     };
     # TODO check relevant settings on services.immich.settings
     # TODO services.immich.accelerationDevices
-    defaultStorageClaim = (lib.mkOption {
-      default = 2;
-      type = lib.types.int;
-      description = "How much Storage Quota users have by default in GiB. Set to 0 for unlimited";
-    }) // {
-      meta = {
-        type = "int";
-        weight = 2;
-        minValue = 0;
-      };
-    };
+    defaultStorageClaim = 2;
+    # defaultStorageClaim = (lib.mkOption {
+    #   default = 2;
+    #   type = lib.types.int;
+    #   description = "How much Storage Quota users have by default in GiB. Set to 0 for unlimited";
+    # }) // {
+    #   meta = {
+    #     type = "int";
+    #     weight = 2;
+    #     minValue = 0;
+    #   };
+    # };
   };
   # All your changes to the system must go to this config attrset.
   # It MUST use lib.mkIf with an enable option.
