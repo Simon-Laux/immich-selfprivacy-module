@@ -80,7 +80,7 @@ in
     }) // {
       meta = {
         type = "int";
-        weight = 1;
+        weight = 2;
         minValue = 0;
       };
     };
