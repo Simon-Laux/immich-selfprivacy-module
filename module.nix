@@ -159,7 +159,8 @@ in
       }
     ];
 
-    # TODO disable passoword login, in hope that this solves the first signup becomes admin problem
+    # disable password login, in hope that this solves the first signup becomes admin problem
+    services.immich.settings.passwordLogin.enabled = false;
 
     services.immich.settings.oauth = {
       enabled = true;
