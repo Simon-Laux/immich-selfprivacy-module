@@ -2,11 +2,11 @@
 let
   # Just for convinience, this module's config values
   sp = config.selfprivacy;
-  cfg = sp.modules.service_id;
+  cfg = sp.modules.immich;
 in
 {
   # Here go the options you expose to the user.
-  options.selfprivacy.modules.service_id = {
+  options.selfprivacy.modules.immich = {
     # This is required and must always be named "enable"
     enable = (lib.mkOption {
       default = false;
