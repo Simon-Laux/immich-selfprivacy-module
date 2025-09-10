@@ -86,8 +86,8 @@ in
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
     };
     systemd = {
-      services.immich-server.serviceConfig.Slice = "immich.slice";
-      services.immich-machine-learning.serviceConfig.Slice = "immich.slice";
+      services.immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
+      services.immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
       # Define the slice itself
       slices.immich = {
         description = "Immich (self-hosted photo and video backup solution) slice (on selfprivacy)";
