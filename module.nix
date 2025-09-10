@@ -200,7 +200,11 @@ in
       displayName = "immich";
       subdomain = cfg.subdomain;
       isTokenNeeded = true;
-      originLanding = "https://${cfg.subdomain}.${sp.domain}";
+
+      # When redirecting from the Kanidm Apps Listing page, some linked applications may need to land on a specific page to trigger oauth2/oidc interactions.
+      # https://mynixos.com/nixpkgs/option/services.kanidm.provision.systems.oauth2.%3Cname%3E.originLanding
+      originLanding = "https://${cfg.subdomain}.${sp.domain}/auth/login?autoLaunch=1";
+
       originUrl = redirectUris;
 
       clientSystemdUnits = [ "immich.service" ];
@@ -225,5 +229,7 @@ in
     # enable Pkce mode that does not use the client secret
     # https://kanidm.github.io/kanidm/stable/integrations/oauth2.html#public-client-configuration
     services.kanidm.provision.systems.oauth2."${oauthClientID}".public = true;
+    # delete client secret
+    services.kanidm.provision.systems.oauth2."${oauthClientID}".basicSecretFile = lib.mkForce null;
   };
 }
