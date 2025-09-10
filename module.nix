@@ -78,7 +78,6 @@ in
     };
     # TODO check relevant settings on services.immich.settings
     # TODO services.immich.accelerationDevices
-    defaultStorageClaim = 2;
     # defaultStorageClaim = (lib.mkOption {
     #   default = 2;
     #   type = lib.types.int;
@@ -186,7 +185,7 @@ in
 
       # Default quota for user without storage quota claim (empty for unlimited quota)
       # (in GiB)
-      defaultStorageQuota = cfg.defaultStorageClaim;
+      defaultStorageQuota = 2 ;#cfg.defaultStorageClaim;
 
       # Claim mapping for the user's role. (should return "user" or "admin")
       roleClaim = "groups";
