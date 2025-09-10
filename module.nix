@@ -169,7 +169,10 @@ in
       buttonText = "Login with Kanidm";
 
       clientId = "immich";
-      clientSecret = oauthClientSecretFP;
+      # TODO patch or contribute to immich to allow providing
+      # a file pointer for the client secret as an alternative
+      # to "hardcoding" the secret into the configuration like this
+      clientSecret = builtins.readFile oauthClientSecretFP;
       scope = "openid email profile";
 
       issuerUrl = oauthDiscoveryURL; # TODO is this correct?
