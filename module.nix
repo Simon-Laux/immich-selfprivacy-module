@@ -185,13 +185,12 @@ in
       # storageQuotaClaim = "immich_quota";
     };
 
-    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}" = lib.mkMerge {
-      extraConfig = lib.mkAfter ''
+    services.nginx.virtualHosts."${cfg.subdomain}.${sp.domain}".extraConfig = lib.mkAfter ''
         rewrite ^/user/login$ /user/oauth2/${oauth2-provider-name} last;
         # FIXME is it needed?
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
-    };
+
 
     # TODO redirect uris
     # as written on https://immich.app/docs/administration/oauth/#prerequisites
