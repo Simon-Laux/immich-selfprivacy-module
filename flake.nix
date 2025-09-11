@@ -7,8 +7,7 @@
 
   outputs = { self, patchedImmich }: {
     nixosModules.default = import ./module.nix {
-      # alternatively patch immich
-      services.immich.package = patchedImmich;
+      inherit patchedImmich;
     };
     configPathsNeeded =
       builtins.fromJSON (builtins.readFile ./config-paths-needed.json);
