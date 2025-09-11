@@ -7,8 +7,7 @@
 
   outputs = { self, patchedImmich }: {
     nixosModules.default = import ./module.nix {
-      # alternatively patch immich
-      services.immich.package = patchedImmich;
+      inherit patchedImmich;
     };
       # docs are under https://selfprivacy.org/docs/theory/selfprivacy_modules/#flake-metadata
     meta = {lib, ...}: {
