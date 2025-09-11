@@ -226,6 +226,6 @@ in
       };
     };
 
-    services.immich.package = patchedImmich.packages.${builtins.currentSystem}.default;
+    services.immich.package = patchedImmich.packages.${pkgs.system}.default;
   };
 }
