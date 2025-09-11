@@ -1,8 +1,14 @@
 {
   description = "Immich as Selfprivacy Module";
 
-  outputs = { self }: {
-    nixosModules.default = import ./module.nix;
+  inputs = {
+    patchedImmich.url = "path:./patched-immich";
+  };
+
+  outputs = { self, patchedImmich }: {
+    nixosModules.default = import ./module.nix {
+      inherit patchedImmich;
+    };
       # docs are under https://selfprivacy.org/docs/theory/selfprivacy_modules/#flake-metadata
     meta = {lib, ...}: {
       spModuleSchemaVersion = 1;
