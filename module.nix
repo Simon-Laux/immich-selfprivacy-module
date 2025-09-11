@@ -235,6 +235,6 @@ in
     #   basicSecretFile = lib.mkForce null;
     # };
 
-    services.immich.package = patchedImmich.packages.default;
+    services.immich.package = patchedImmich.packages.${builtins.currentSystem}.default;
   };
 }
