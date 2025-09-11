@@ -1,4 +1,4 @@
-{ config, lib, pkgs, patchedImmich, ... }:
+{ config, lib, pkgs, ... }:
 let
   # Just for convinience, this module's config values
   sp = config.selfprivacy;
@@ -235,7 +235,6 @@ in
     #   basicSecretFile = lib.mkForce null;
     # };
 
-    # alternatively patch immich
-    services.immich.package = patchedImmich;
+
   };
 }
