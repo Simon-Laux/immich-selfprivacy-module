@@ -210,7 +210,6 @@ in
 
       clientSystemdUnits = [ "immich.service" ];
 
-      # https://github.com/immich-app/immich/issues/18826 says that this makes it possible to not define client secret in >=1.134
       enablePkce = true;
       linuxUserOfClient = linuxUserOfService;
       linuxGroupOfClient = linuxGroupOfService;
@@ -226,14 +225,6 @@ in
         valuesByGroup.${adminsGroup} = [ "admin" ];
       };
     };
-
-    # # enable Pkce mode that does not use the client secret
-    # # https://kanidm.github.io/kanidm/stable/integrations/oauth2.html#public-client-configuration
-    # services.kanidm.provision.systems.oauth2."${oauthClientID}" = {
-    #   public = true;
-    #   # delete client secret
-    #   basicSecretFile = lib.mkForce null;
-    # };
 
     services.immich.package = patchedImmich.packages.${builtins.currentSystem}.default;
   };
