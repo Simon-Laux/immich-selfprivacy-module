@@ -148,6 +148,10 @@ in
           proxyPass = "http://localhost:2283";
           proxyWebsockets = true;
         };
+        # TODO put behind toggle
+        "/auth/register" = {
+          return = 403;
+        };
       };
     };
 
@@ -166,7 +170,7 @@ in
       enabled = true;
       autoRegister = true;
       # https://immich.app/docs/administration/oauth/#auto-launch
-      autoLaunch = false;
+      autoLaunch = true; # TODO put behind toggle
       buttonText = "Login with Kanidm";
 
       clientId = "immich";
