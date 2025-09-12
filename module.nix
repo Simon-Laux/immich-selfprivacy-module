@@ -153,6 +153,10 @@ in
         "/auth/register" = {
           return = 403;
         };
+        # TODO put behind toggle
+        "/api/auth/admin-sign-up"= {
+          return = 403;
+        };
       };
     };
 
