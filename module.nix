@@ -144,11 +144,8 @@ in
         # FIXME is it needed?
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
+      # order matters
       locations = {
-        "/" = {
-          proxyPass = "http://localhost:2283";
-          proxyWebsockets = true;
-        };
         # TODO put behind toggle
         "/auth/register" = {
           return = 403;
@@ -156,6 +153,10 @@ in
         # TODO put behind toggle
         "/api/auth/admin-sign-up"= {
           return = 403;
+        };
+        "/" = {
+          proxyPass = "http://localhost:2283";
+          proxyWebsockets = true;
         };
       };
     };
