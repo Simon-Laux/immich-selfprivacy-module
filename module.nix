@@ -149,10 +149,14 @@ in
           proxyPass = "http://localhost:2283";
           proxyWebsockets = true;
         };
-        # TODO put behind toggle
-        "/auth/register" = {
-          return = "403";
-        };
+
+        # Thanks to immich's PWA service worker magic,
+        # this page opens anyway somehow,
+        # so not much point in blocking it
+        # "/auth/register" = {
+        #  return = "403";
+        # };
+
         # TODO put behind toggle
         "/api/auth/admin-sign-up"= {
           return = "403";
