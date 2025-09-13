@@ -2,5 +2,11 @@
   ["selfprivacy", "domain"],
   ["selfprivacy", "timezone"],
   ["selfprivacy", "useBinds"],
-  ["selfprivacy", "modules", "immich"]
+  ["selfprivacy", "modules", "immich"],
+  ["selfprivacy", "modules", "auth", "enable"],
+  ["selfprivacy", "passthru", "auth", "mkOAuth2ClientSecretFP"],
+  ["selfprivacy", "passthru", "auth", "mkServiceAccountTokenFP"],
+  ["selfprivacy", "passthru", "auth", "oauth2-discovery-url"],
+  ["selfprivacy", "passthru", "auth", "oauth2-provider-name"],
+  ["selfprivacy", "sso", "enable"]
 ]
