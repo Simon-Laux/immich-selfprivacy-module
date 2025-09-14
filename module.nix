@@ -157,7 +157,6 @@ in
           after = [ "immich-server.service" ];
           requires = [ "immich-server.service" ];
           wantedBy = [ "multi-user.target" ];
-          Slice = "immich.slice";
           path = [ pkgs.curl pkgs.bash ];
           script = ''
             while true; do
@@ -181,6 +180,7 @@ in
             Type = "simple";
             Restart = "no";
             RemainAfterExit = false;
+            Slice = "immich.slice";
           };
         };
 
