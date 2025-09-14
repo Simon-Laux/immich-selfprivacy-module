@@ -158,7 +158,9 @@ in
           wantedBy = [ "multi-user.target" ];
           path = [ pkgs.curl pkgs.bash ];
           script = ''
+            echo "started script"
             while true; do
+              echo "check if immich is up yet"
               response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2283/)
               if [ "$response" = "200" ]; then
                 admin_email="admin@immich.selfprivacy.local"
