@@ -89,6 +89,31 @@ in
     #     minValue = 0;
     #   };
     # };
+
+    # Why do we need this?
+    # ====================
+    # Problem:
+    #  immich normally makes the first registered user admin,
+    #  which is a potential problem on a publicly accessible setup like self-privacy,
+    #  since some bot may beat you to the punch and snatch the admin account before you do it.
+    #  This also is not acceptable for unattended installations, because it leaves a big security hole.
+    #
+    # Solution:
+    #  So our solution is to block the API for creating the new admin account
+    #  and create it automatically on startup if it does not exist yet.
+    #
+    #  The account we create is a dummy account that has a random username and credentials.
+    #  To get an actual usable account, you should log in with a Self Privacy account that has admin privileges for immich.
+    OnlyAllowSSOLogin = (lib.mkOption {
+      default = true;
+      type = lib.types.bool;
+      description = "Only allow SSO login and automatically create an admin account. If that doesn't work, then you may need to change this option temporarely to create an admin account.";
+    }) // {
+      meta = {
+        type = "bool";
+        weight = 1;
+      };
+    };
   };
   # All your changes to the system must go to this config attrset.
   # It MUST use lib.mkIf with an enable option.
@@ -122,8 +147,43 @@ in
       group = linuxGroupOfService;
     };
     systemd = {
-      services.immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
-      services.immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
+      services = {
+        immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
+        immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
+
+        immich-auto-register-admin = lib.mkIf cfg.OnlyAllowSSOLogin {
+          description = "Startup script that auto-registers the first user admin account once the website is up";
+          after = [ "immich-server.service" ];
+          requires = [ "immich-server.service" ];
+          wantedBy = [ "multi-user.target" ];
+          Slice = "immich.slice";
+          path = [ pkgs.curl pkgs.bash ];
+          script = ''
+            while true; do
+              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2283/)
+              if [ "$response" = "200" ]; then
+                admin_email="admin@immich.selfprivacy.local"
+                admin_password=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c42)
+                admin_name="Admin$(head /dev/urandom | tr -dc A-Za-z | head -c8)"
+                sleep 3
+                curl -X POST -H "Content-Type: application/json" \
+                  -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\",\"name\":\"$admin_name\"}" \
+                  http://localhost:2283/api/auth/admin-sign-up
+                echo "Request to register admin account was made. (it returns an error when it already exists, which can be ignored)"
+                break
+              fi
+              sleep 3
+              echo "still waiting for immich to be up (debug: $response)"
+            done
+          '';
+          serviceConfig = {
+            Type = "simple";
+            Restart = "no";
+            RemainAfterExit = false;
+          };
+        };
+
+      };
       # Define the slice itself
       slices.immich = {
         description = "Immich (self-hosted photo and video backup solution) slice (on selfprivacy)";
@@ -150,18 +210,20 @@ in
           proxyWebsockets = true;
         };
 
-        # Thanks to immich's PWA service worker magic,
-        # this page opens anyway somehow,
-        # so not much point in blocking it
-        # "/auth/register" = {
-        #  return = "403";
-        # };
+      } // (if cfg.OnlyAllowSSOLogin then {
+          # Thanks to immich's PWA service worker magic,
+          # this page opens anyway somehow,
+          # so not much point in blocking it
+          # "/auth/register" = {
+          #  return = "403";
+          # };
 
-        # TODO put behind toggle
-        "/api/auth/admin-sign-up"= {
-          return = "403";
-        };
-      };
+          "/api/auth/admin-sign-up"= {
+            return = "403";
+          };
+        }
+        else {}
+      );
     };
 
   # SSO
@@ -179,7 +241,7 @@ in
       enabled = true;
       autoRegister = true;
       # https://immich.app/docs/administration/oauth/#auto-launch
-      autoLaunch = true; # TODO put behind toggle
+      autoLaunch = cfg.OnlyAllowSSOLogin;
       buttonText = "Login with Kanidm";
 
       clientId = "immich";
