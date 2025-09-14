@@ -154,14 +154,14 @@ in
         immich-auto-register-admin = lib.mkIf cfg.OnlyAllowSSOLogin {
           description = "Startup script that auto-registers the first user admin account once the website is up";
           after = [ "immich-server.service" ];
-          # requires = [ "immich-server.service" ];
+          requires = [ "immich-server.service" ];
           wantedBy = [ "multi-user.target" ];
           path = [ pkgs.curl pkgs.bash ];
           script = ''
             echo "started script"
             while true; do
               echo "check if immich is up yet"
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2283/)
+              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2283/ || true)
               if [ "$response" = "200" ]; then
                 admin_email="admin@immich.selfprivacy.local"
                 admin_password=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c42)
