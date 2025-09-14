@@ -154,7 +154,7 @@ in
         immich-auto-register-admin = lib.mkIf cfg.OnlyAllowSSOLogin {
           description = "Startup script that auto-registers the first user admin account once the website is up";
           after = [ "immich-server.service" ];
-          requires = [ "immich-server.service" ];
+          # requires = [ "immich-server.service" ];
           wantedBy = [ "multi-user.target" ];
           path = [ pkgs.curl pkgs.bash ];
           script = ''
