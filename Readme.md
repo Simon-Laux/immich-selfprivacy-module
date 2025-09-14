@@ -21,7 +21,13 @@ Then run this command to make it appear in the SelfPrivacy app:
 nix flake update --override-input selfprivacy-nixos-config git+https://git.selfprivacy.org/SelfPrivacy/selfprivacy-nixos-config.git?ref=flakes
 ```
 
-Now you just need to activate the module in the SP app and navigate to the page to setup immich.
+### How to delete to start fresh
+WARNING: know what you are doing! this deletes all your images.
+
+- disable immich module in the SP app and wait until it is done
+- remove immich object from /etc/nixos/userdata.json
+- delete the immich folder from /volumes/sda1/immich/ or /volumes/sdb/immich (or whatever you set as data folder)
+- delete immich db with `dropdb -U postgres immich`
 
 ### Thanks
 
