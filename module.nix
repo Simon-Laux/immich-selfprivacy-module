@@ -235,7 +235,7 @@ in
     ];
 
     # disable password login, in hope that this solves the first signup becomes admin problem
-    services.immich.settings.passwordLogin.enabled = false;
+    services.immich.settings.passwordLogin.enabled = !cfg.OnlyAllowSSOLogin;
 
     services.immich.settings.oauth = {
       enabled = true;
