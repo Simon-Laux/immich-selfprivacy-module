@@ -66,6 +66,7 @@ in
     # but we keep this mkIf to keep migration flow possible.
     fileSystems = lib.mkIf sp.useBinds {
       "/var/lib/immich" = {
+        fsType = "auto";
         device = "/volumes/${cfg.location}/immich";
         # Make sure that your service does not start before folder mounts
         options = [
