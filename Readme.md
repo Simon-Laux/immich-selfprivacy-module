@@ -27,6 +27,13 @@ Once it is set up you are able to login via SSO.
 
 The main admin account is created in the background, but it is a random, inaccessible dummy account that just needed to exist for SSO to work. You can get an accessible admin account by logging in with an SP account with immich admin privileges via SSO.
 
+### Note on admin rights
+
+immich (up to 3.0) only looks at the admin group on the *first* SSO login of a user, when it creates the immich account.
+Adding someone to the immich admins group or removing them from it later does not change anything in immich;
+an existing immich admin has to toggle "Admin" for that user in the immich admin panel (Administration → Users) by hand.
+immich 3.1 and newer re-check the role on every login, so this will resolve itself once SelfPrivacy ships that version.
+
 ### Note on backups from before immich 2.x
 
 Older installs of this module ran immich 1.138 with the pgvecto.rs (`vectors`) postgres extension, which is no longer available in NixOS 26.05.
