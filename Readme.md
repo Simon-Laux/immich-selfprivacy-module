@@ -5,15 +5,16 @@
 Since this is a not an official module, you need to add it first
 to the inputs of your SelfPrivacy instance.
 
-Login to your server via ssh and open the inputs file:
 ```sh
-nano /etc/nixos/sp-modules/flake.nix
+nano /etc/nixos/flake.nix
 ```
 
-Add this to the end of your file, but before `outputs = _: { };`:
+Add this to the end of the `inputs = {` block:
 ```nix
-# Your own modules:
-  inputs.immich.url = "git+https://github.com/Simon-Laux/immich-selfprivacy-module";
+  # Your own modules:
+  sp-module-immich = {
+    url = "git+https://github.com/Simon-Laux/immich-selfprivacy-module";
+  };
 ```
 
 Then run this command to make it appear in the SelfPrivacy app:
@@ -21,7 +22,31 @@ Then run this command to make it appear in the SelfPrivacy app:
 nix flake update --override-input selfprivacy-nixos-config git+https://git.selfprivacy.org/SelfPrivacy/selfprivacy-nixos-config.git?ref=flakes
 ```
 
-Now you just need to activate the module in the SP app and navigate to the page to setup immich.
+Now you just need to activate the module in the SP app.
+Once it is set up you are able to login via SSO.
+
+The main admin account is created in the background, but it is a random, inaccessible dummy account that just needed to exist for SSO to work. You can get an accessible admin account by logging in with an SP account with immich admin privileges via SSO.
+
+### Note on admin rights
+
+immich (up to 3.0) only looks at the admin group on the *first* SSO login of a user, when it creates the immich account.
+Adding someone to the immich admins group or removing them from it later does not change anything in immich;
+an existing immich admin has to toggle "Admin" for that user in the immich admin panel (Administration → Users) by hand.
+immich 3.1 and newer re-check the role on every login, so this will resolve itself once SelfPrivacy ships that version.
+
+### Note on backups from before immich 2.x
+
+Older installs of this module ran immich 1.138 with the pgvecto.rs (`vectors`) postgres extension, which is no longer available in NixOS 26.05.
+On the first start after updating, the module drops the stale extension from the database (see `immich-drop-pgvectors.service`), so new backups are fine.
+Database backups taken *before* that still contain `CREATE EXTENSION vectors` and cannot be restored as-is on the new system.
+
+### How to delete to start fresh
+WARNING: know what you are doing! this deletes all your images.
+
+- disable immich module in the SP app and wait until it is done
+- remove immich object from /etc/nixos/userdata.json
+- delete the immich folder from /volumes/sda1/immich/ or /volumes/sdb/immich (or whatever you set as data folder)
+- delete immich db with `dropdb -U postgres immich`
 
 ### Thanks
 

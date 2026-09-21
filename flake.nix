@@ -1,6 +1,8 @@
 {
   description = "Immich as Selfprivacy Module";
 
+  inputs = {};
+
   outputs = { self }: {
     nixosModules.default = import ./module.nix;
       # docs are under https://selfprivacy.org/docs/theory/selfprivacy_modules/#flake-metadata
@@ -26,6 +28,11 @@
 
       user = "immich";
       group = "immich";
+
+      sso = {
+        userGroup = "sp.immich.users";
+        adminGroup = "sp.immich.admins";
+      };
 
       # Folders that have to be moved or backed up
       # Ownership is implied by the user/group defined above

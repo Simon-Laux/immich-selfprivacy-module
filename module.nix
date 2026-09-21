@@ -3,6 +3,32 @@ let
   # Just for convinience, this module's config values
   sp = config.selfprivacy;
   cfg = sp.modules.immich;
+
+  oauthClientID = "immich";
+  auth-passthru = config.selfprivacy.passthru.auth;
+  # oauth2-provider-name = auth-passthru.oauth2-provider-name;
+  redirectUris = [
+    # https://immich.app/docs/administration/oauth/#prerequisites
+    "app.immich:///oauth-callback"
+    "https://${cfg.subdomain}.${sp.domain}/auth/login"
+    "https://${cfg.subdomain}.${sp.domain}/user-settings"
+  ];
+  oauthDiscoveryURL = auth-passthru.oauth2-discovery-url oauthClientID;
+
+  # SelfPrivacy uses SP Module ID to identify the group!
+  adminsGroup = "sp.immich.admins";
+  usersGroup = "sp.immich.users";
+
+  # INFO: immich is the default user & group that is created by the immich nixos service
+  # if we change this we may need to create the user and group in this file instead
+  linuxUserOfService = "immich";
+  linuxGroupOfService = "immich";
+
+  # serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
+  oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
+
+  # where the immich server listens locally (defaults to localhost:2283)
+  immichURL = "http://${config.services.immich.host}:${toString config.services.immich.port}";
 in
 {
   # Here go the options you expose to the user.
@@ -55,6 +81,42 @@ in
     };
     # TODO check relevant settings on services.immich.settings
     # TODO services.immich.accelerationDevices
+    # defaultStorageClaim = (lib.mkOption {
+    #   default = 2;
+    #   type = lib.types.int;
+    #   description = "How much Storage Quota users have by default in GiB. Set to 0 for unlimited";
+    # }) // {
+    #   meta = {
+    #     type = "int";
+    #     weight = 2;
+    #     minValue = 0;
+    #   };
+    # };
+
+    # Why do we need this?
+    # ====================
+    # Problem:
+    #  immich normally makes the first registered user admin,
+    #  which is a potential problem on a publicly accessible setup like self-privacy,
+    #  since some bot may beat you to the punch and snatch the admin account before you do it.
+    #  This also is not acceptable for unattended installations, because it leaves a big security hole.
+    #
+    # Solution:
+    #  So our solution is to block the API for creating the new admin account
+    #  and create it automatically on startup if it does not exist yet.
+    #
+    #  The account we create is a dummy account that has a random username and credentials.
+    #  To get an actual usable account, you should log in with a Self Privacy account that has admin privileges for immich.
+    OnlyAllowSSOLogin = (lib.mkOption {
+      default = true;
+      type = lib.types.bool;
+      description = "Only allow SSO login and automatically create an admin account. If that doesn't work, then you may need to change this option temporarely to create an admin account.";
+    }) // {
+      meta = {
+        type = "bool";
+        weight = 1;
+      };
+    };
   };
   # All your changes to the system must go to this config attrset.
   # It MUST use lib.mkIf with an enable option.
@@ -87,10 +149,86 @@ in
       # also tell the server, otherwise it keeps trying to reach the (stopped) ML service
       settings.machineLearning.enabled = cfg.machineLearningEnable;
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
+      user = linuxUserOfService;
+      group = linuxGroupOfService;
     };
     systemd = {
-      services.immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
-      services.immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
+      services = {
+        immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
+        immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
+
+        # One-time cleanup after the pgvecto.rs -> VectorChord migration.
+        # Installs made with immich 1.138 (the version this module used to pin) already
+        # migrated their indexes to vchord automatically, but the old `vectors` extension
+        # stays registered in the database: immich only tries to drop extensions that are
+        # still *available*, and nixos 26.05 no longer ships pgvecto.rs at all (on 25.11 the
+        # drop failed silently because the `immich` DB user does not own the extension).
+        # Leaving it in place makes pg_dump backups unrestorable (`CREATE EXTENSION vectors` fails).
+        # DROP EXTENSION without CASCADE fails if anything still depends on it, so a
+        # not-yet-migrated database is left untouched and only a warning is logged.
+        # See https://docs.immich.app/administration/postgres-standalone/#migrating-to-vectorchord
+        immich-drop-pgvectors = {
+          description = "Drop leftover pgvecto.rs extension from the immich database";
+          after = [ "postgresql.target" ];
+          requires = [ "postgresql.target" ];
+          before = [ "immich-server.service" ];
+          wantedBy = [ "immich-server.service" ];
+          path = [ config.services.postgresql.package ];
+          script = ''
+            if psql -d immich -c "DROP EXTENSION IF EXISTS vectors; DROP SCHEMA IF EXISTS vectors;"; then
+              echo "pgvecto.rs leftovers are gone (or were never there)"
+            else
+              echo "WARNING: could not drop pgvecto.rs from the immich database, see psql error above."
+              echo "If it complains about dependent objects, the database is not migrated to VectorChord yet."
+            fi
+          '';
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = "postgres";
+            Group = "postgres";
+            Slice = "immich.slice";
+          };
+        };
+
+        immich-auto-register-admin = lib.mkIf cfg.OnlyAllowSSOLogin {
+          description = "Startup script that auto-registers the first user admin account once the website is up";
+          after = [ "immich-server.service" ];
+          requires = [ "immich-server.service" ];
+          # wanted by immich-server itself (not multi-user.target) so it re-runs every time
+          # the server (re)starts: if immich-server fails at boot and recovers later, the dummy
+          # admin would otherwise never be created and nginx blocks doing it by hand
+          wantedBy = [ "immich-server.service" ];
+          path = [ pkgs.curl pkgs.bash ];
+          script = ''
+            echo "started script"
+            while true; do
+              echo "check if immich is up yet"
+              response=$(curl -s -o /dev/null -w "%{http_code}" ${immichURL}/ || true)
+              if [ "$response" = "200" ]; then
+                admin_email="admin@immich.selfprivacy.local"
+                admin_password=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c42)
+                admin_name="Admin$(head /dev/urandom | tr -dc A-Za-z | head -c8)"
+                sleep 3
+                curl -X POST -H "Content-Type: application/json" \
+                  -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\",\"name\":\"$admin_name\"}" \
+                  ${immichURL}/api/auth/admin-sign-up
+                echo "Request to register admin account was made. (it returns an error when it already exists, which can be ignored)"
+                break
+              fi
+              sleep 3
+              echo "still waiting for immich to be up (debug: $response)"
+            done
+          '';
+          serviceConfig = {
+            Type = "simple";
+            Restart = "no";
+            RemainAfterExit = false;
+            Slice = "immich.slice";
+          };
+        };
+
+      };
       # Define the slice itself
       slices.immich = {
         description = "Immich (self-hosted photo and video backup solution) slice (on selfprivacy)";
@@ -106,12 +244,118 @@ in
         add_header X-Frame-Options SAMEORIGIN;
         add_header X-Content-Type-Options nosniff;
         add_header X-XSS-Protection "1; mode=block";
+
+        # FIXME is it needed?
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
       '';
+      # longest specific match matters
       locations = {
         "/" = {
-          proxyPass = "http://localhost:2283";
+          proxyPass = immichURL;
           proxyWebsockets = true;
         };
+
+      } // (if cfg.OnlyAllowSSOLogin then {
+          # Thanks to immich's PWA service worker magic,
+          # this page opens anyway somehow,
+          # so not much point in blocking it
+          # "/auth/register" = {
+          #  return = "403";
+          # };
+
+          "/api/auth/admin-sign-up"= {
+            return = "403";
+          };
+        }
+        else {}
+      );
+    };
+
+  # SSO
+    assertions = [
+      {
+        assertion = sp.sso.enable;
+        message = "This module needs SSO. Please update your SP instance to enable it.";
+      }
+    ];
+
+    # disable password login, in hope that this solves the first signup becomes admin problem
+    services.immich.settings.passwordLogin.enabled = !cfg.OnlyAllowSSOLogin;
+
+    services.immich.settings.oauth = {
+      enabled = true;
+      autoRegister = true;
+      # https://immich.app/docs/administration/oauth/#auto-launch
+      autoLaunch = cfg.OnlyAllowSSOLogin;
+      buttonText = "Login with Kanidm";
+
+      clientId = "immich";
+      # `_secret` makes the nixos module load the file via systemd LoadCredential
+      # and substitute it into /run/immich/config.json at service start
+      clientSecret._secret = oauthClientSecretFP;
+      scope = "openid email profile";
+
+      issuerUrl = oauthDiscoveryURL; # TODO is this correct?
+
+      # https://immich.app/docs/administration/oauth/#mobile-redirect-uri
+      mobileOverrideEnabled = false;
+      # mobileRedirectUri: "";
+
+      signingAlgorithm = "ES256";
+      # profileSigningAlgorithm = "none";
+
+      # Default quota for user without storage quota claim (empty for unlimited quota)
+      # (in GiB)
+      defaultStorageQuota = 2 ;#cfg.defaultStorageClaim;
+
+      # Claim mapping for the user's role. (should return "user" or "admin")
+      roleClaim = "groups";
+      storageLabelClaim = "preferred_username";
+
+      # TODO: custom claims from UI? does SP support that?
+      # storageQuotaClaim = "immich_quota";
+    };
+
+    selfprivacy.auth.clients."${oauthClientID}" = {
+      inherit adminsGroup usersGroup;
+      imageFile = ./icon.svg;
+      displayName = "immich";
+      subdomain = cfg.subdomain;
+      isTokenNeeded = true;
+
+      # When redirecting from the Kanidm Apps Listing page, some linked applications may need to land on a specific page to trigger oauth2/oidc interactions.
+      # https://mynixos.com/nixpkgs/option/services.kanidm.provision.systems.oauth2.%3Cname%3E.originLanding
+      originLanding = "https://${cfg.subdomain}.${sp.domain}/auth/login?autoLaunch=1";
+
+      originUrl = redirectUris;
+
+      # kanidm is ordered before these units, so the client secret file
+      # exists when LoadCredential reads it at service start
+      clientSystemdUnits = [ "immich-server.service" ];
+
+      enablePkce = true;
+      linuxUserOfClient = linuxUserOfService;
+      linuxGroupOfClient = linuxGroupOfService;
+
+      scopeMaps.${usersGroup} = [
+        "email"
+        "openid"
+        "profile"
+      ];
+
+      # Read by immich as `roleClaim` (see services.immich.settings.oauth above).
+      # immich <= 3.0 only accepts the claim if it is the plain *string* "admin" or "user"
+      # (an array like ["admin"] is silently ignored and the user is created as a normal user),
+      # so join as a space separated string instead of an array.
+      # Only the admins group is mapped: SP makes admins members of the users group too,
+      # so mapping the users group to "user" would produce "admin user" for admins.
+      # Users outside the admins group get no claim and fall back to immich's default "user".
+      # immich >= 3.1 also accepts arrays and re-syncs the role on every login, so once
+      # nixpkgs ships that we can go back to `joinType = "array"` and add
+      # `valuesByGroup.${usersGroup} = [ "user" ]` to get demotion of ex-admins as well.
+      claimMaps.groups = {
+        joinType = "ssv";
+        valuesByGroup.${adminsGroup} = [ "admin" ];
       };
     };
   };
