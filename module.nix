@@ -84,6 +84,8 @@ in
     services.immich = {
       enable = true;
       machine-learning.enable = cfg.machineLearningEnable;
+      # also tell the server, otherwise it keeps trying to reach the (stopped) ML service
+      settings.machineLearning.enabled = cfg.machineLearningEnable;
       settings.server.externalDomain = "https://${cfg.subdomain}.${sp.domain}";
     };
     systemd = {
