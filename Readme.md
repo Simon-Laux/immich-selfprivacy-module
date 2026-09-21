@@ -5,15 +5,16 @@
 Since this is a not an official module, you need to add it first
 to the inputs of your SelfPrivacy instance.
 
-Login to your server via ssh and open the inputs file:
 ```sh
-nano /etc/nixos/sp-modules/flake.nix
+nano /etc/nixos/flake.nix
 ```
 
-Add this to the end of your file, but before `outputs = _: { };`:
+Add this to the end of the `inputs = {` block:
 ```nix
   # Your own modules:
-  inputs.immich.url = "git+https://github.com/Simon-Laux/immich-selfprivacy-module";
+  sp-module-immich = {
+    url = "git+https://github.com/Simon-Laux/immich-selfprivacy-module";
+  };
 ```
 
 Then run this command to make it appear in the SelfPrivacy app:
