@@ -26,6 +26,9 @@ let
 
   # serviceAccountTokenFP = auth-passthru.mkServiceAccountTokenFP linuxGroupOfService;
   oauthClientSecretFP = auth-passthru.mkOAuth2ClientSecretFP linuxGroupOfService;
+
+  # where the immich server listens locally (defaults to localhost:2283)
+  immichURL = "http://${config.services.immich.host}:${toString config.services.immich.port}";
 in
 {
   # Here go the options you expose to the user.
@@ -190,13 +193,16 @@ in
           description = "Startup script that auto-registers the first user admin account once the website is up";
           after = [ "immich-server.service" ];
           requires = [ "immich-server.service" ];
-          wantedBy = [ "multi-user.target" ];
+          # wanted by immich-server itself (not multi-user.target) so it re-runs every time
+          # the server (re)starts: if immich-server fails at boot and recovers later, the dummy
+          # admin would otherwise never be created and nginx blocks doing it by hand
+          wantedBy = [ "immich-server.service" ];
           path = [ pkgs.curl pkgs.bash ];
           script = ''
             echo "started script"
             while true; do
               echo "check if immich is up yet"
-              response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:2283/ || true)
+              response=$(curl -s -o /dev/null -w "%{http_code}" ${immichURL}/ || true)
               if [ "$response" = "200" ]; then
                 admin_email="admin@immich.selfprivacy.local"
                 admin_password=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c42)
@@ -204,7 +210,7 @@ in
                 sleep 3
                 curl -X POST -H "Content-Type: application/json" \
                   -d "{\"email\":\"$admin_email\",\"password\":\"$admin_password\",\"name\":\"$admin_name\"}" \
-                  http://localhost:2283/api/auth/admin-sign-up
+                  ${immichURL}/api/auth/admin-sign-up
                 echo "Request to register admin account was made. (it returns an error when it already exists, which can be ignored)"
                 break
               fi
@@ -243,7 +249,7 @@ in
       # longest specific match matters
       locations = {
         "/" = {
-          proxyPass = "http://localhost:2283";
+          proxyPass = immichURL;
           proxyWebsockets = true;
         };
 
