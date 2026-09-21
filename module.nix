@@ -1,4 +1,4 @@
-{patchedImmich }:{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 let
   # Just for convinience, this module's config values
   sp = config.selfprivacy;
@@ -152,6 +152,40 @@ in
         immich-server.serviceConfig.Slice = lib.mkForce "immich.slice";
         immich-machine-learning.serviceConfig.Slice = lib.mkForce "immich.slice";
 
+        # One-time cleanup after the pgvecto.rs -> VectorChord migration.
+        # Installs made with immich 1.138 (the version this module used to pin) already
+        # migrated their indexes to vchord automatically, but the old `vectors` extension
+        # stays registered in the database: immich only tries to drop extensions that are
+        # still *available*, and nixos 26.05 no longer ships pgvecto.rs at all (on 25.11 the
+        # drop failed silently because the `immich` DB user does not own the extension).
+        # Leaving it in place makes pg_dump backups unrestorable (`CREATE EXTENSION vectors` fails).
+        # DROP EXTENSION without CASCADE fails if anything still depends on it, so a
+        # not-yet-migrated database is left untouched and only a warning is logged.
+        # See https://docs.immich.app/administration/postgres-standalone/#migrating-to-vectorchord
+        immich-drop-pgvectors = {
+          description = "Drop leftover pgvecto.rs extension from the immich database";
+          after = [ "postgresql.target" ];
+          requires = [ "postgresql.target" ];
+          before = [ "immich-server.service" ];
+          wantedBy = [ "immich-server.service" ];
+          path = [ config.services.postgresql.package ];
+          script = ''
+            if psql -d immich -c "DROP EXTENSION IF EXISTS vectors; DROP SCHEMA IF EXISTS vectors;"; then
+              echo "pgvecto.rs leftovers are gone (or were never there)"
+            else
+              echo "WARNING: could not drop pgvecto.rs from the immich database, see psql error above."
+              echo "If it complains about dependent objects, the database is not migrated to VectorChord yet."
+            fi
+          '';
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = "postgres";
+            Group = "postgres";
+            Slice = "immich.slice";
+          };
+        };
+
         immich-auto-register-admin = lib.mkIf cfg.OnlyAllowSSOLogin {
           description = "Startup script that auto-registers the first user admin account once the website is up";
           after = [ "immich-server.service" ];
@@ -248,8 +282,9 @@ in
       buttonText = "Login with Kanidm";
 
       clientId = "immich";
-      # this needs patched immich, which we do at the end of this file
-      clientSecret = oauthClientSecretFP;
+      # `_secret` makes the nixos module load the file via systemd LoadCredential
+      # and substitute it into /run/immich/config.json at service start
+      clientSecret._secret = oauthClientSecretFP;
       scope = "openid email profile";
 
       issuerUrl = oauthDiscoveryURL; # TODO is this correct?
@@ -286,7 +321,9 @@ in
 
       originUrl = redirectUris;
 
-      clientSystemdUnits = [ "immich.service" ];
+      # kanidm is ordered before these units, so the client secret file
+      # exists when LoadCredential reads it at service start
+      clientSystemdUnits = [ "immich-server.service" ];
 
       enablePkce = true;
       linuxUserOfClient = linuxUserOfService;
@@ -303,7 +340,5 @@ in
         valuesByGroup.${adminsGroup} = [ "admin" ];
       };
     };
-
-    services.immich.package = patchedImmich.packages.${pkgs.system}.default;
   };
 }
