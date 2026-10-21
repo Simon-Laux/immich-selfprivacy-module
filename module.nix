@@ -344,18 +344,13 @@ in
       ];
 
       # Read by immich as `roleClaim` (see services.immich.settings.oauth above).
-      # immich <= 3.0 only accepts the claim if it is the plain *string* "admin" or "user"
-      # (an array like ["admin"] is silently ignored and the user is created as a normal user),
-      # so join as a space separated string instead of an array.
-      # Only the admins group is mapped: SP makes admins members of the users group too,
-      # so mapping the users group to "user" would produce "admin user" for admins.
-      # Users outside the admins group get no claim and fall back to immich's default "user".
-      # immich >= 3.1 also accepts arrays and re-syncs the role on every login, so once
-      # nixpkgs ships that we can go back to `joinType = "array"` and add
-      # `valuesByGroup.${usersGroup} = [ "user" ]` to get demotion of ex-admins as well.
+      # immich >= 3.1 accepts an array and re-syncs the role on every login:
+      # admins (who SP also puts in the users group) get ["admin" "user"] -> admin,
+      # everyone else gets ["user"] -> demoted if they were admin before.
       claimMaps.groups = {
-        joinType = "ssv";
+        joinType = "array";
         valuesByGroup.${adminsGroup} = [ "admin" ];
+        valuesByGroup.${usersGroup} = [ "user" ];
       };
     };
   };

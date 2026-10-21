@@ -1,10 +1,17 @@
 {
   description = "Immich as Selfprivacy Module";
 
-  inputs = {};
+  # immich 2.x in nixos-26.05 is marked insecure and 3.x is not backported,
+  # so take only the immich package from unstable (pinned by flake.lock).
+  # Bump with `nix flake update nixpkgs-immich`. Can be dropped once SelfPrivacy is on 26.11.
+  inputs.nixpkgs-immich.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  outputs = { self }: {
-    nixosModules.default = import ./module.nix;
+  outputs = { self, nixpkgs-immich }: {
+    nixosModules.default = { pkgs, ... }: {
+      imports = [ ./module.nix ];
+      services.immich.package =
+        nixpkgs-immich.legacyPackages.${pkgs.stdenv.hostPlatform.system}.immich;
+    };
       # docs are under https://selfprivacy.org/docs/theory/selfprivacy_modules/#flake-metadata
     meta = {lib, ...}: {
       spModuleSchemaVersion = 1;

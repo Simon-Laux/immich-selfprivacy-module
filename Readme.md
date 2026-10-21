@@ -27,12 +27,16 @@ Once it is set up you are able to login via SSO.
 
 The main admin account is created in the background, but it is a random, inaccessible dummy account that just needed to exist for SSO to work. You can get an accessible admin account by logging in with an SP account with immich admin privileges via SSO.
 
+### Note on the immich version
+
+The immich package does not come from SelfPrivacy's nixpkgs (nixos-26.05 only has immich 2.x, which is marked insecure),
+but from nixos-unstable, pinned in this repo's `flake.lock` (bump with `nix flake update nixpkgs-immich`).
+Updating from 2.x to 3.x migrates the database, there is no way back to 2.x afterwards.
+
 ### Note on admin rights
 
-immich (up to 3.0) only looks at the admin group on the *first* SSO login of a user, when it creates the immich account.
-Adding someone to the immich admins group or removing them from it later does not change anything in immich;
-an existing immich admin has to toggle "Admin" for that user in the immich admin panel (Administration → Users) by hand.
-immich 3.1 and newer re-check the role on every login, so this will resolve itself once SelfPrivacy ships that version.
+immich re-checks the admin group on every SSO login, so adding someone to or removing them from the immich admins group
+takes effect the next time they log in.
 
 ### Note on backups from before immich 2.x
 
